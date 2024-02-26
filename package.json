@@ -1,11 +1,12 @@
 {
-  "scripts": {
+    "scripts": {
     "test": "jest"
   },
-  "devDependencies": {
+    "devDependencies": {
     "jest": "^29.7.0"
   },
   "dependencies": {
-    "axios": "^1.6.7"
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.5"
   }
 }

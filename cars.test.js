@@ -1,67 +1,30 @@
-const axios = require('axios')
-
-/**
- * User
- * aqa-tomRid7@gmail.com 
- * Qa123456!
- */
-let brandResponse = []
-let carsResponse = []
-let client
-
-async function deleteItems(ids) {
-  for (const id of ids) {
-    await axios.delete(`/cars/${id}`);
-  }
-}
-
-beforeAll(async () => {
-  const authResp = await axios.post('https://qauto.forstudy.space/api/auth/signin', {
-    email: 'aqa-tomRid7@gmail.com',
-    password: 'Qa123456!',
-    remember: false
-  })
-
-  const sid = authResp.headers['set-cookie'][0].split(';')[0]
-  client = axios.create({
-    baseURL: 'https://qauto.forstudy.space/api',
-    ValidateStatus: (status)=>{return status >=200 && status < 500},
-    headers: {
-      Cookie: sid
-    }
-  })
-
-  brandResponse = await axios({
-    method: 'get',
-    url: 'https://qauto.forstudy.space/api/cars/brands'
-  })
-
-  carsResponse = await axios({
-    method: 'get',
-    url: 'https://qauto.forstudy.space/api/cars/models'
-  })
-});
-
+const { CarController } = require('./controller/CarController')
 
 test('create cars with all brabds and models', async () => {
+  const carsController = new CarController()
+  await carsController.login()
+  const carsResponse = await carsController.getAllModels()
+
   for(const car of carsResponse.data.data) {
-    const createCar = await client.post('/cars', {
+    const createCar = await carsController.createCar({
       "carBrandId": car.carBrandId,
       "carModelId": car.id,
       "mileage": 122
     })
-
     expect(createCar.status).toBe(201)
   }
 
   //Verify that all brands and models are added to the user's account
-  const userCars = await client.get('/cars')
+  const userCars = await carsController.getUsersCars()
   expect(userCars.data.data.length).toBe(carsResponse.data.data.length)
 })
 
 test('car should not be added without carBrandId', async () => {
+  const carsController = new CarController()
+  await carsController.login()
+
   try{
-    await client.post('/cars', {
+    await carsController.createCar({
       "carModelId": 1,
       "mileage": 122
     })
@@ -71,48 +34,40 @@ test('car should not be added without carBrandId', async () => {
 })
 
 test('car should not be added without carModelId', async () => {
+  const carsController = new CarController()
+  await carsController.login()
+
   try{
-    await client.post('/cars', {
+    await carsController.createCar({
       "carBrandId": 1,
       "mileage": 122
     })
   } catch(error) {
     expect(error.response.status).toBe(400);
-  } 
+  }
 })
 
 test('car should not be added without mileage', async () => {
+  const carsController = new CarController()
+  await carsController.login()
+
   try{
-    await client.post('/cars', {
-      "carBrandId": 1,
+    await carsController.createCar({
+      "carModelId": 1,
       "carBrandId": 1
     })
   } catch(error) {
     expect(error.response.status).toBe(400);
-  } 
+  }
 })
 
 test('user with not valid email should not be able to add cars', async () => {
   try{
-    const authResp = await axios.post('https://qauto.forstudy.space/api/auth/signin', {
-      email: 'aqa-tomRid7NotValid@gmail.com',
-      password: 'Qa123456!',
-      remember: false
-    })
-  
-    const sid = authResp.headers['set-cookie'][0].split(';')[0]
-    let clientWrongEmail = axios.create({
-      baseURL: 'https://qauto.forstudy.space/api',
-      ValidateStatus: (status)=>{return status >=200 && status < 500},
-      headers: {
-        Cookie: sid
-      }
-    })
-
-    await clientWrongEmail.post('/cars', {
-      "carBrandId": 1,
+    const carsController = new CarController()
+    await carsController.login("notvalidEmail", 'default')
+    await carsController.createCar({
       "carModelId": 1,
-      "mileage": 122
+      "carBrandId": 1
     })
   } catch(error) {
     expect(error.response.status).toBe(400);
@@ -121,25 +76,11 @@ test('user with not valid email should not be able to add cars', async () => {
 
 test('user with not valid password shoudl not be able to add cars', async () => {
   try{
-    const authResp = await axios.post('https://qauto.forstudy.space/api/auth/signin', {
-      email: 'aqa-tomRid7@gmail.com',
-      password: 'Qa123456!NotValid',
-      remember: false
-    })
-  
-    const sid = authResp.headers['set-cookie'][0].split(';')[0]
-    let clientWrongEmail = axios.create({
-      baseURL: 'https://qauto.forstudy.space/api',
-      ValidateStatus: (status)=>{return status >=200 && status < 500},
-      headers: {
-        Cookie: sid
-      }
-    })
-
-    await clientWrongEmail.post('/cars', {
-      "carBrandId": 1,
+    const carsController = new CarController()
+    await carsController.login('default', "notvalidPassword")
+    await carsController.createCar({
       "carModelId": 1,
-      "mileage": 122
+      "carBrandId": 1
     })
   } catch(error) {
     expect(error.response.status).toBe(400);
@@ -147,11 +88,13 @@ test('user with not valid password shoudl not be able to add cars', async () => 
 })
 
 afterAll(async () => {
-  //Delete all user's cars
-  const userCars = await client.get('/cars')
+  // Delete all user's cars
+  const carsController = new CarController()
+  await carsController.login()
+  const userCars = await carsController.getUsersCars()
   const carBrandIds = [...new Set(userCars.data.data.map(car => car.id))]
 
   for (const id of carBrandIds) {
-    await client.delete(`/cars/${id}`);
+    await carsController.deleteCarById(id);
   }
 });
